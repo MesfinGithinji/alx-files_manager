@@ -1,5 +1,5 @@
-import { createClient } from 'redis';
 import { promisify } from 'util';
+import { createClient } from 'redis';
 
 /**
  * Redis Clinet Class that has:
@@ -10,32 +10,37 @@ import { promisify } from 'util';
  * 5. async function del that takes a string key as argument and remove the value in Redis for this key
  * Also exports an instance of RedisClient called redisClient
  * */
+
 class RedisClient {
-  constructor () {
-    this.myClient = createClient();
-    this.myClient.on('error', (error) => console.log(error));
+  constructor() {
+    this.client = createClient();
+    this.isClientConnected = true;
+    this.client.on('error', (err) => {
+      console.error('Redis client failed to connect:', err.message || err.toString());
+      this.isClientConnected = false;
+    });
+    this.client.on('connect', () => {
+      this.isClientConnected = true;
+    });
   }
 
-  isAlive () {
-    return this.myClient.connected;
+  isAlive() {
+    return this.isClientConnected;
   }
 
-  async get (key) {
-    const getAsync = promisify(this.myClient.GET).bind(this.myClient);
-    return getAsync(key);
+  async get(key) {
+    return promisify(this.client.GET).bind(this.client)(key);
   }
 
-  async set (key, val, time) {
-    const setAsync = promisify(this.myClient.SET).bind(this.myClient);
-    return setAsync(key, val, 'EX', time);
+  async set(key, value, duration) {
+    await promisify(this.client.SETEX)
+      .bind(this.client)(key, duration, value);
   }
 
-  async del (key) {
-    const delAsync = promisify(this.myClient.DEL).bind(this.myClient);
-    return delAsync(key);
+  async del(key) {
+    await promisify(this.client.DEL).bind(this.client)(key);
   }
 }
 
-const redisClient = new RedisClient();
-
+export const redisClient = new RedisClient();
 export default redisClient;
